@@ -2,7 +2,10 @@
 title: "Linear models II"
 author: "Etienne Low-Décarie"
 date: '2017-12-20'
-output: html_document
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
 ---
 
 # General Linear Models in R: Part 2
@@ -127,11 +130,9 @@ print(p)
 
 How about data + fits? EXAMINE THIS CLOSELY 
 
-Note the use of panel in xyplot(). Panel is a set of functions that allow particular “functions” to be carried out inside each panel. Here we ask R to plot the data split by season, plot the data for each season (panel.xyplot) and fit a linear regression to that data (panel.lmline). 
-An alternative method, using the raw data and model coefficients....THIS IS WORTH CONSIDERING VERY CLOSELY AS AN INTERPRETATION OF THE DATA AND MODEL 
 
 WHICH IS THE BEST FIT ?
-We finish by detaching the dataset from the database and clearing all of the data and objects from the workspace….unless you want to save it. However, we recommend a script instead. 
+
  
 
 ## Soay Sheep Data Exploration 
@@ -157,10 +158,7 @@ ggpairs(sheep[,names(sheep) %in% c("WEIGHT", "Testosterone", "ODIN", "STR" ,"SUR
 ```
 
 Is WEIGHT approximately normally distributed? 
-Produce a qq-normal plot for each of the variables (each data.column) above 
-– do they look straight? 
 
-*	Carryout a Kolmogorov-Smirnov Test and a Shapiro-Wilks testfor normality on each of these; the KS test is one of may tests for normality. pnorm stipulates a comparison between the data.column and the normal probability distribution; what does the p-value indicate? 
  
 
 Linear regression 
@@ -170,14 +168,66 @@ load influence body weight.
 Start with plots of the data again
 Is AGE a factor or a Covariate?
 
+```{r}
+p <- qplot(data=sheep,
+           y=WEIGHT,
+           x=as.factor(AGE),
+           geom="boxplot")
+print(p)
+```
 
- 
+```{r}
+p <- qplot(data=sheep,
+           y=WEIGHT,
+           x=SEX,
+           geom="boxplot")
+print(p)
+```
+```{r}
+p <- qplot(data=sheep,
+           y=WEIGHT,
+           x=STR)
+print(p)
+```
 
-Note how names(m1) produced a list of component pieces to the object, defined my lm. We can use these objects to reproduce some of the diagnostic plots 
-What did abline(h=0) produce on the plot? 
+```{r}
+m1 <- lm(WEIGHT~factor(AGE)*SEX*STR,
+         data=sheep)
+```
 
+
+
+
+Note how `names(m1)` produced a list of component pieces to the object, defined my lm. We can use these objects to reproduce some of the diagnostic plots.
+```{r}
+names(m1)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+```
+```{r}
+require(ggfortify)
+autoplot(m1)
+```
+
+```{r}
+p <- qplot(y=m1$residuals,
+           x=m1$fitted)+
+  geom_hline(yintercept = 0)
+print(p)
+```
 As above, we use anova and summary to explore this model 
  
+ 
+```{r}
+anova(m1)
+```
+
+```{r}
+summary(m1)
+```
 
 Now, we are faced with some interesting decisions. As we are exploring this data, one might argue that we are not necessarily looking for the best predictive model (adding terms to the model will invariably increase the R2 and make it better at predicting). Instead, we use the philosophy of the minimum adequate model to seek out the variables that explain significant amounts of variance. 
 
@@ -185,36 +235,83 @@ Now, we are faced with some interesting decisions. As we are exploring this data
 To do this, we begin by looking at the highest order terms in the model – in this case the 3-way interaction. Because 1) our anova table is sequential and we can only trust the p-values on the highest order terms, and 2) because everything above this is marginal, we ask the very simple question – is the 3way significant? 
 If the answer is no, than removing it from the model makes no significant change in our explanation of variance. Remember this principle. 
 We can use a trick in R to update our model and make sure that our interpretation is correct. 
- 
 
-m2 is now a model formed, using the command update(), without the 3 way interaction. We look at the new anova table to confirm we lost it. We can then use anova(m1,m2) to compare the model, using an F-test, to determine whether one explains more variation than the other. It tests the change in the sums of squares against the F-distribution. Compare this p-value to the one in the anova table for model 1 above. Is it the same? 
+```{r}
+m2 <- update(m1, ~.-factor(AGE):SEX:STR)
+anova(m2)
+```
+
+```{r}
+anova(m1,m2)
+```
+
+`m2` is now a model formed, using the command update(), without the 3 way interaction. We look at the new anova table to confirm we lost it. We can then use anova(m1,m2) to compare the model, using an F-test, to determine whether one explains more variation than the other. It tests the change in the sums of squares against the F-distribution. Compare this p-value to the one in the anova table for model 1 above. Is it the same? 
 Now, we are stuck with a rather difficult prospect. Model 2 has three 2-way interactions in it. Each of these is in the highest order category now (2-way). Moreover, as the table is sequential, the only p-value that we can trust is the last one, for SEX:STR. How do we cope? 
 
 We could, if we had the time and inclination, rewrite our model three times, each time, placing one of the 2-way terms at the end of our model description. Or, as we saw above, we could create 3 models, each missing one of the 2-way variables, and use anova() to compare the two. A significant p-value on any of the comparisons would indicate that indeed, the term is significant and important. These are called single-term-deletion tests. 
 Not surprisingly there is an easier way: dropterm() from the MASS library. This function implements the single-term-deletions.  You therefore need to load MASS.
- 
+
+```{r}
+require(MASS)
+dropterm(m2, test="F")
+```
 Q:Why does dropterm() only report on the higher order interactions? 
 Q: Which terms can we consider dropping? 
 
-Let’s begin with the most insignificant term, and work our way down the chain of significance and order of interactions 
- 
+Let’s begin with the insignificant term, and work our way down the chain of significance and order of interactions 
+
+```{r}
+m3 <- update(m2, ~.-SEX:STR)
+dropterm(m3,test="F")
+```
+
+
+```{r}
+m4 <- update(m3, ~.-factor(AGE):SEX)
+dropterm(m4,test="F")
+```
 Notice now that we have the minimum explanatory model. Our deletions of the 2-way terms left us with only one significant higher order term: age*sex. This left parasite load behind, and as it is not involved in an interaction, the main effect is the highest order term for parasite load. We have detected significant effects of parasite load on Weight and of age and sex on weight. Using summary(m4) we can identify that increasing parasite load, controlling for sex and age, causes decreases in weight. 
- 
+
+```{r}
+summary(m4)
+```
 
 Finally we can use predicted values from the model to explore the interaction! 
 First, we must declare a parasite load at which to make the prediction. Then we build a data frame for prediction. Then we use this data frame. 
+
+```{r}
+newdat <- with(sheep,
+  expand.grid(AGE=levels(factor(AGE)),
+              SEX=levels(SEX),
+              STR=mean(STR)))
+```
  
 Note how expand.grid makes a minimal dataset of values on which to predict. 
-Now we make a dataset for plotting. 
- 
-Now, we use lots of primitive graphics to make a nice barplot showing everything. 
- 
-Involved, but completely customisable! TRY THIS too. 
- 
+```{r}
+pd <- predict(m4, newdat, se.fit=T)
+pd
+```
+Now we make a dataset for plotting. This can be done with values from `predict` or using `augment` in `broom`.
+
+```{r}
+require(broom)
+augment_m4 <- augment(m4)
+```
+
+We then plot this augmented data
+
+```{r}
+p <- qplot(data=augment_m4,
+           x=paste(factor.AGE.,SEX, sep="-"),
+           y=.fitted,
+           geom="boxplot")
+print(p)
+```
 Some people like the idea of Type III sums of squares (as you'd get in Minitab) – so that you can look at the terms' significance without doing the dropterm() or drop1().  See http://www.stats.ox.ac.uk/pub/MASS3/Exegeses.pdf for a discussion why Type IIIs are often not used.  If you insist, you can use the command:
 
 ```{r}
-#anova(mm1,type="marginal")
+require(car)
+Anova(m1,type="III")
 ```
 
 

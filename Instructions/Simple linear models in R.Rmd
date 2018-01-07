@@ -3,18 +3,23 @@ title: "Simple Linear models in R"
 author: "Etienne Low-Décarie"
 date: '2017-12-18'
 output:
-  pdf_document: default
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
   html_document: default
 ---
 
 Based on sheet produced by Tom Cameron
 
-## 0. Do it by hand...
+# ANOVA
+
+## Do an ANOVA by hand...
 Note this next can be cut and pasted in as a script, or alternatively, you can enter this all bit by bit because that way you’re more likely to understand ...
 
 Initial setup
-```{r echo=FALSE}
-#Housekeeping ####
+```{r message=FALSE}
+#Housekeeping
 require(dplyr)
 require(ggplot2)
 require(tidyr)
@@ -139,13 +144,13 @@ now calculate the F statistic as MS between/MS within
 Fstat<-betweenMS/withinMS
 ```
 
-#now calculate P
+now calculate P
 ```{r}
 pf(Fstat,1,16,lower.tail=F)
 ```
 
-
-#you have now done an ANOVA "by hand" in R. Check it by doing it "properly":
+## Use built in R functions for ANOVA (rather than "by hand"
+you have now done an ANOVA "by hand" in R. Check it by doing it "properly":
 ```{r}
 m1<-lm(no_eggs~location, data=anova1)
 ```
@@ -161,7 +166,7 @@ summary(m1) #look at the summary function applied to a linear model
 anova(m1) # compare the summary function output to the anova function
 ```
 
-# Exercise 1. One way ANOVA
+## Exercise 1. One way ANOVA
 An experiment was conducted to compare the effect of three amino acids: carnosine, histidine and imidazole on ascorbate-iron induced lipid peroxidation in rat liver microsomes. The results are below (in arbitrary units of rate). Do the different amino acids produce different amounts of peroxidation?
 
 1.  Input your 15 data into a single vector (`perox<-...`); then set up your factor column with 5x1, 5x2 and 5x3 (`amino<-gl(3,5)` or `amino<-rep(c("carn","hist","imid"),each=5))`  Use ?gl or ?rep to explore what they mean.
@@ -200,7 +205,8 @@ amino<-rep(c("carn","hist","imid"),each=5)
 perox_amino <- data.frame(perox,amino)
 ```
 
-# 2. Regression
+# Regression
+
 The contractile vacuole of protozoa can often be observed under the microscope. In an experiment, protozoa were placed in different concentrations of water and the rate of contractile vacuole contractions observed. What, if any, is the relationship between contractile vacuole contractions and water salinity?
 
 1. Always begin by plotting the data to see what a relationship looks like. Use lm to fit a model to it, with the model looking at contraction rate as a function of concentration. What is the equation describing the relationship? Does the vacuole work differently at different concentrations? If so, why?

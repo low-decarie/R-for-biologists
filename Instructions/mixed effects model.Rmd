@@ -1,0 +1,435 @@
+---
+title: "Mixed effects model"
+author: "Etienne Low-Décarie"
+date: '2018-01-07'
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+# Mixed effects models practical
+
+> This exercise is an introduction to Mixed Effects Modelling (initiatially written by Diana Bowler (now at Bangor)), with adaptations from various sources, mainly datasets within R).  There are a number of questions here for you to work through, enough to occupy two sessions if you need it.
+
+# Example 1: The difference between fitting a fixed and a random factor
+
+> Data: 7 fish were tested five times for the time it took them to locate a new food resource added to their tank.  Do fish vary in the time taken to locate food?
+
+
+Import the datasheet into R
+```{r}
+data1<-read.csv("./Data/data1.csv")
+names(data1)
+```
+
+Remember, once you attach( ) a data frame, you can call on variables without specifying the name of the data frame.  
+
+It is useful to look at summary(data.frame) and str(data.frame) to see simple information on your data sheet
+
+`fishId` is numerical variable so we need to tell R it is a factor or it assumes it to be a continuous variable
+
+```{r}
+data1$fishId<-factor(data1$fishId)
+```
+
+
+View the data as a box plot
+
+```{r}
+require(ggplot2)
+p <- qplot(data=data1,
+           x=fishId,
+           y=Time)
+print(p)
+```
+To illustrate the differences between an lm and lme, firstly carry out a straight forward ANOVA with fishId as a fixed term
+
+```{r}
+lm1<-lm(Time~fishId,
+        data=data1)
+summary(lm1)
+```
+
+Now run a lme model with fishId as a random term and the overall mean (denoted by 1 ) as the only fixed term – you will need to load the nlme library
+
+```{r}
+library(nlme)
+lme1<-lme(Time~1,random=~1|fishId,
+          data=data1)
+summary(lme1)
+```
+
+> Compare the summary outputs which show you the parameters being estimated by each model:  
+*	The lm shows parameters for the differences among the fish used in the experiment.  The default parameter estimates in R are called “treatment contrasts”.  The first parameter (labelled as intercept) is the mean response for the first factor level (fishId 1) and the remaining parameters are the differences between each factor level and the first level.  
+*	In the lme, the effects of individual fish are modelled as random deviations from the population mean; these random effects are assumed to be normally distributed with mean zero and variance as predicted by the model (reported as standard deviation = 0.986 in the model summary).
+
+
+What are the key differences between the two model outputs?  Whether the fixed or random effects' model is more appropriate would depend on whether you wished to make inferences about differences in the mean response among the factor levels in the experiment or inferences about the between-factor level variability in the population from which the factor levels were drawn.
+
+
+
+
+# Example 2: Coping with pseudoreplication
+
+Data: an experiment tested the effect of nest temperature on the weight gain of blue tits in 12 nest boxes.  Each nest box was in one of three treatments: control, heated or cooled and chicks were weighed once.  There were 4 boxes in each treatment and 6 individuals (3 of each sex) in each box.
+
+```{r}
+data2<-read.csv("./Data/data2.csv")
+names(data2)
+str(data2)
+levels(data2$TREAT)
+```
+
+Explore the data to see the effects of treatments and sex on growth.  Play around with the following code to understand how it works.
+
+```{r}
+require(dplyr)
+data2 %>%
+  group_by(TREAT) %>%
+  summarise(mean_WEIGHT=mean(WEIGHT))
+```
+
+```{r}
+data2 %>%
+  group_by(TREAT, SEX) %>%
+  summarise(mean_WEIGHT=mean(WEIGHT))
+```
+```{r}
+require(ggplot2)
+p <- qplot(data=data2,
+           x=TREAT,
+           y=WEIGHT,
+           colour=SEX,
+           geom="boxplot")
+print(p)
+```
+
+
+Do you think there is an effect of nest box, treatment or sex?
+
+Briefly ignore the grouping in the data and fit a simple linear model to test for the effects of treatment and sex
+
+```{r}
+chicklm1<-lm(WEIGHT~SEX*TREAT,
+             data=data2)
+```
+
+View model diagnostics to check assumptions and try and interpret the model outputs.  From the anova table see if there’s a treatment effect?
+
+```{r}
+par(mfrow=c(2,2))# to plot four graphs on one sheet
+plot(chicklm1)
+```
+
+```{r}
+summary(chicklm1)
+anova(chicklm1)
+```
+
+> However, this analysis is wrong and does not taken into account the grouping of the data.  Chicks within the same nest box are not independent data points.
+
+
+
+Specify the model as a mixed model with Box as the random effect.  The random term will account for variation due to box.
+
+```{r}
+chicklme1<-lme(WEIGHT~SEX*TREAT,random=~1|BOX,
+               data=data2)
+```
+
+Graphs for model diagnostics have to be specified more explicitly for mixed models, but should be checked in a similar way to standard linear models.  The following will give you plots of fits vs. residuals, normality of residuals, and normality of random effects respectively.
+
+```{r}
+plot(chicklme1)
+```
+
+```{r}
+qqnorm(chicklme1)
+```
+
+```{r}
+qqnorm(chicklme1,~ranef(.))
+```
+
+
+> The significance of fixed terms in mixed models can be tested by looking at the anova(model) output for the model, which will give conditional F-tests.  Remember the terms are tested sequentially so the order of terms in the model can matter!
+
+Look at the summary and anova outputs.  
+
+```{r}
+summary(chicklme1)
+anova(chicklme1)
+```
+
+Is there a treatment effect?  
+Compare these outputs with the outputs from the linear model – remember you can copy code and outputs into a script file (go to File>New Script).
+
+Note that we have explained more variation in the data by incorporating the box effect as a random term (stdev of box effect = 0.395), and the detected interaction term is larger (compare the F-values in the anova table) in the lme than in the lm.  
+
+Other useful information can be seen by: 
+
+`random.effects(chicklme1)`  to get the predicted random effects (i.e. deviation from the population mean) for each box.
+
+```{r}
+random.effects(chicklme1)
+```
+
+`intervals(chicklme1)` to get 95% confidence intervals on model parameters.
+
+```{r}
+intervals(chicklme1)
+```
+
+`VarCorr(chicklme1)` to get the variance and standard deviations of the random effects and residuals (note: we already get the standard deviations in the summary output.
+
+```{r}
+VarCorr(chicklme1)
+```
+
+
+> Using `predict(model, level=0)` you will get the predictions of the way the response varies due to the fixed effects for each treatment (i.e. the average effects for nest box treatment and sex) while predict(model, level=1) will give you the predictions of the fixed effects plus the random effect for each level of the random factor (i.e. effects of treatment, sex and box).  Run the following code to understand what this means!
+
+
+
+Plot the weight gain predictions of the model.  
+1.  Plot fixed effects
+```{r}
+require(broom)
+augmented_lme1 <- augment(chicklme1)
+p <- qplot(data=augmented_lme1,
+           y=.fixed,
+           x=TREAT,
+           colour=SEX,
+           geom="boxplot")
+print(p)
+```
+
+
+2.  Plot fixed and random effects
+
+```{r}
+p <- qplot(data=augmented_lme1,
+           y=.fitted,
+           x=TREAT,
+           colour=SEX,
+           geom="boxplot")
+print(p)
+```
+
+
+Note that in the first graph, there is a unique prediction for each of the 4 boxes in a treatment group because of the random term for box.
+
+
+# Example 3: Longitudinal data
+
+> Data: Rats (n=4 per group) were fed on one of two diets and subsequently weighed at 11 time points until day 64.  
+
+
+
+```{r}
+data3<-read.csv("./Data/data3.csv")
+names(data3)
+str(data3)
+data3$Diet<-factor(data3$Diet)
+data3$Rat<-factor(data3$Rat)
+```
+
+
+Estimate mean differences in weight between diets. 
+```{r}
+data3 %>%
+  group_by(Diet) %>%
+  summarise(mean_weight=mean(weight))
+```
+  
+Produce some plots e.g.
+
+```{r}
+p <- qplot(data=data3,
+           x=Time,
+           y=weight,
+           colour=Rat)+
+  geom_smooth(aes(linetype=Diet), se=F)
+print(p)
+```
+
+>Data on the same rat is not independent so, as in previous models here, we can incorporate a random term for rat which will allow the intercept to vary between rats.  In longitudinal data like this, we can also allow the slope to vary between rats by incorporating random slopes. This will become clear after running the following code!!
+
+
+
+
+
+
+
+
+
+For this model, we will firstly specify the data as a groupedData object (from library nlme) which just specifies the grouping in the data and will allow us to get complicated graphs simply.  "Outer" refers to the outer, or highest level grouping variable.
+
+```{r}
+gd1<-groupedData(weight~Time|Rat,outer=~Diet,
+                 data=data3)
+plot(gd1)
+```
+
+```{r}
+plot(gd1,outer=T)
+```
+
+
+Now undertake two models, one with random intercepts (random=~1|Rat) and one with both random intercepts and slopes (random=~Time|Rat).
+
+random intercepts:
+```{r}
+ratlme1<-lme(weight~Time*Diet,random=~1|Rat, 
+             data=gd1)
+```
+
+random slopes and intercepts:
+```{r}
+ratlme2<-lme(weight~Time*Diet,random=~Time|Rat, 
+             data=gd1)
+```
+
+
+Plot the predictions of these models to see the difference between fitting these random terms.
+
+```{r}
+augmented_ratlme1 <- augment(ratlme1)
+p <- qplot(data=augmented_ratlme1,
+           x=Time,
+           y=.fitted,
+           colour=Rat)+
+  geom_smooth(aes(linetype=Diet), se=F)
+print(p)
+```
+
+
+```{r}
+augmented_ratlme2 <- augment(ratlme2)
+p <- qplot(data=augmented_ratlme2,
+           x=Time,
+           y=.fitted,
+           colour=Rat)+
+  geom_smooth(aes(linetype=Diet), se=F)
+print(p)
+```
+
+Compare the graphs side by side (move the upper graph aside as they’ll be on top of each other).  Note that in the second graph, the rats within a treatment group vary in both the intercept and the slope of the fitted line.    
+
+You can also compare the predictions of each model for each rat with the following:  
+
+```{r}
+plot(comparePred(ratlme1,ratlme2),length.out=2)
+```
+
+> The significance of random terms can be tested by comparing the model with the random term with the model without the random term e.g. anova(model1,model2).  This will give a likelihood ratio test for the significance of the random term.
+
+
+
+Does the model with random slopes and random intercepts provide a significantly better fit to the data than the model with only random intercepts? Test the significance of including random slopes.
+
+```{r}
+anova(ratlme1,ratlme2)
+```
+
+Also, look at the anova( ) outputs of each model? What happens to the time:diet interaction? Can you think why this might be?
+
+# Example 4: Multiple nested terms 
+
+> Data: Maths scores of male and female students taken from 187 students in total from 10 schools – note we have more than one score for each student, and more than one student per school.  What explains the variation in scores?     
+
+Data can be grouped at two nested levels: maths scores from the same student and scores from students in the same school.  
+
+
+```{r}
+data4<-read.csv("./Data/data4.csv")
+names(data4)
+str(data4)
+```
+
+Explore the data using averaging and plots.
+
+```{r}
+mathslme1<-lme(score~sex,random=~1|schoolId/studentId,
+               data=data4)
+```
+
+Make sure you understand the code for this model.  
+
+Look at the model diagnostic graphs to check model assumptions as before.  Note that now we have two random intercept terms, we need to specify ranef(model, level=1) or ranef(model, level=2) to get the predicted random effects for school (level=1) or student (level=2) (e.g. qqnorm(mathslme1,~ranef(.,level=2))  )
+
+Look at summary ( ) or VarCorr( ) to compare the estimates for each random term.  Which is more important?  Test for the significance of the “student” effect? 
+
+```{r}
+mathslme1<-lme(score~sex,random=~1|schoolId/studentId,
+               data=data4)
+mathslme2<-update(mathslme1,random=~1|schoolId,
+               data=data4)
+anova(mathslme1,mathslme2)
+```
+
+Test the schoolId random term and compare which random term is more important? Is there an effect of sex on scores?
+
+# Example 5: 
+
+> Data: 79 spruce trees were measured 5 times over consecutive months that were in either ozone enriched chambers or control chambers.  
+
+
+```{r message=FALSE, warning=FALSE}
+require(MASS)
+?Sitka
+p <- qplot(data=Sitka,
+           y=size,
+           x=Time,
+           colour=treat,
+           group=tree)+
+  geom_smooth(se=F)
+print(p)
+```
+Analyse it!  Clearly, the model structure needs to take into account the repeated measures (so tree must be a random factor) (but the growth of each tree could vary in intercept alone, or both slope and intercept)… 
+
+The traditional way of analysing a dataset such as this would be either to use a formal repeated measures’ ANOVA or to estimate the growth rate of each tree (either by putting a regression through the data for each tree and taking the slope/intercept, or by some simple rate calculation ((end size-initial size)/time).  For the former, the standard approach would be to use the aov command (in MASS library).  E.g.
+
+```{r}
+rm1<-aov(size ~ treat*Time + Error(factor(tree)),
+         data=Sitka)
+summary(rm1)
+```
+
+
+For the latter: a simple way to get the tree specific data, would be to put regressions thru all trees and look at the tree-specific variation in the intercept or slope e.g.
+
+```{r}
+options(contrasts=c("contr.treatment", "contr.poly"))
+mod<-lm(size~Time*factor(tree)-1,
+        data=Sitka)
+```
+
+And these coefs could then be the dependent variable in a lm.  So first extract the intercepts and slopes
+```{r}
+treeintercepts<-as.numeric(mod$coef[2:80])
+treeslopes<- as.numeric(mod$coef[1]-c(0,mod$coef[81:158]))
+```
+Set up a new treatment column:
+```{r}
+t2<-rep(0,79)
+for(i in 1:79){t2[i]<-Sitka$treat[((i-1)*5)+1]} #what IS this doing?
+s2<-data.frame(cbind(treeslopes,treeintercepts,t2))
+rm2a<-lm(treeintercepts~t2,s2)
+rm2b<-lm(treeslopes~t2,s2)
+summary(rm2a)
+summary(rm2b)
+
+```
+
+Run the lm and compare it to a properly specified (intercepts varying only) lme.  
+
+```{r}
+rm3<-lme(size~Time*treat,random=~1|factor(tree),Sitka)
+summary(rm3)
+anova(rm3)
+```
+
+
+Do the three methods give similar conclusions?

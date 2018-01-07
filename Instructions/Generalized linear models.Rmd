@@ -3,9 +3,10 @@ title: "Generalized linear models"
 author: "Etienne Low-Décarie"
 date: '2017-12-18'
 output:
-  word_document: default
   pdf_document:
     latex_engine: xelatex
+    toc: yes
+  word_document: default
   html_document: default
 ---
 
@@ -201,7 +202,7 @@ Recall that our major diagnostic tool is the ratio between the residual deviance
 
 ```{r}
 m2 <- glm(cbind(count,non_germ)~Orobanche*extract, 
-          family=quasibinomial,
+          family="quasibinomial",
           data=gg)
 ```
 
@@ -216,7 +217,7 @@ anova(m2)
 
 ```{r}
 m3 <- glm(cbind(count,non_germ)~extract, 
-          family=quasibinomial,
+          family="quasibinomial",
           data=gg)
 ```
 
