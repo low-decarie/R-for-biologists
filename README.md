@@ -1,4 +1,4 @@
-![RHero logo](https://github.com/low-decarie/R-for-biologists/rhero.jpg "RHero")
+![RHero logo](https://github.com/low-decarie/R-for-biologists/blob/master/rhero.jpg "RHero")
 
 Module Outline: The module will consist of practical training and exercises in: Use and interpretation of modern statistical methods including General Linear Models, Generalised Linear Models and their application to biological problems. Use of the freeware R for general data handling, plotting and statistical data mining.
 
