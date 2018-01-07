@@ -1,0 +1,1 @@
+This folder should contain your data.  Once you record your data, you put it in here and never touch it again. The data should not be manipulated directly.

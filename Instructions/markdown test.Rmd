@@ -1,0 +1,13 @@
+---
+title: "Markdwon test"
+author: "Etienne Low-Décarie"
+date: '2017-12-18'
+output: html_document
+---
+
+```{r cars}
+within(cars,{
+     mean_dist <- mean(dist)
+     })
+cars
+```

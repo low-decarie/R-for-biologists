@@ -1,0 +1,1 @@
+This folder will contain the plots you produce from your R scripts, likely in a PDF format. 

@@ -1,0 +1,1 @@
+This folder should contain files produced by your r scrips (analysis results, curated or transformed data,etc)

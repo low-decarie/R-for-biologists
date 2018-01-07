@@ -1,0 +1,220 @@
+---
+title: "Linear models II"
+author: "Etienne Low-Décarie"
+date: '2017-12-20'
+output: html_document
+---
+
+# General Linear Models in R: Part 2
+
+## A 2-Way Factorial Analysis of Variance of Limpets
+
+This dataset is taken from the Quinn and Keough book. It is a study looking at density dependent fecundity in limpets in two different seasons. The null hypothesis is that there is no effect of density or season on the production of eggs. Alternatives include there being a density effect that differs between seasons (interaction between density and season) or an additive effect of season and density (no interaction – e.g. slope of density dependence is the same, but means are lower or higher between seasons). 
+> Step 1: Import the limpet data into R and attach the data sheet.  Identify the names of the columns in R and do a panel plot of eggs vs. density, split by season 
+
+```{r echo=FALSE}
+limp <- read.csv("./Data/limpet.csv")
+```
+
+```{r}
+require(ggplot2)
+p <- qplot(data=limp,
+           x=DENSITY,
+           y=EGGS,
+           colour=SEASON,
+           shape=SEASON)
+print(p)
+```
+
+
+Ask yourself now – what kind of analysis are we doing? ANOVA, ANCOVA, Multiple Regression? Which variables are categorical and which are continuous? Can you find out? 
+
+```{r}
+str(limp)
+```
+
+Based on the graph, what do I expect my 2-way analysis to show – the null hypothesis, the alternative of an interaction, or the alternative of no interaction? 
+To do this analysis, we use the workhorse, lm(), follow this immediately by a check of assumptions, then an examination of the anova table and the coefficients table. lm performs general linear models – these models assume normally distributed errors, but are robust to deviations in sample sizes (unbalanced designs). 
+
+````{r}
+m1<-lm(EGGS~DENSITY*SEASON,
+       data=limp)
+par(mfrow=c(2,2))
+plot(m1)
+```
+
+```{r}
+anova(m1)
+```
+
+```{r}
+summary(m1)
+```
+ before we go over the details: 
+*	why do we assign the model a name `m1`? 
+*	What does `DENSITY*SEASON` mean in the model?
+*	What does `par(mfrow=c(2,2))` do? 
+*	What should plot(m1) produce? 
+ 
+ 
+# Some Interpretations 
+The “Call” in `summary()` specifies your model – is this what you wanted? The Residuals gives the quartiles of the residuals – are they evenly distributed? 
+The coefficients are as in any statistical package – the estimates for each term are the coefficients that help describe change in the dependent variable as a function of the independent variable(s). 
+ 
+
+The Residual Standard Error, Multiple R2 and Adjusted R2 tell you the standard things about variance explanation 
+Finally, the F-test, degrees of freedom and overall significance of the model is presented 
+Do the diagnostic plots show anything bad? 
+The anova table shows which if any terms are significant? 
+Is this table a sequential sums of squares? 
+Which terms are marginal to the interaction? 
+What does this mean? 
+Which Hypothesis does this analysis support? 
+Remove the interaction term (e.g. reanlyse as m2<-lm(EGGS~DENSITY+SEASON)).  Are the p-values the same as the ANOVA table with the interaction term?
+
+Let’s examine the fitted values and make a plot of our predictions. Note how we can use tapply and predict to get the fitted values (look at the help for them!). Note the “response” notation, as this predicts the fitted values of the model in terms of the response variable.  This will be important later with generalized linear models, as you can predict differently (e.g. in terms of the transformed response variable).
+ 
+```{r}
+require(broom)
+m1_augmented <- augment(m1)
+
+require(dplyr)
+season_means <- m1_augmented %>%
+  group_by(SEASON) %>%
+  summarise(mean_fitted=mean(.fitted))
+
+print(season_means)
+```
+
+```{r}
+density_means <- m1_augmented %>%
+  group_by(DENSITY) %>%
+  summarise(mean_fitted=mean(.fitted))
+
+print(density_means)
+```
+
+```{r}
+density_season_means <- m1_augmented %>%
+  group_by(DENSITY,SEASON) %>%
+  summarise(mean_fitted=mean(.fitted))
+
+print(density_season_means)
+```
+
+```{r}
+require(tidyr)
+spread(density_season_means, 
+       key=SEASON, 
+       value=mean_fitted)
+```
+
+What does `spread` do?
+
+We can use predict to make a final plot of the predicted values from the generalised linear models.  Sometimes useful for presenting the data
+
+
+```{r}
+p <- qplot(data=m1_augmented,
+           x=DENSITY,
+           y=.fitted,
+           colour=SEASON,
+           shape=SEASON,
+           geom=c("point", "line"))
+print(p)
+```
+
+
+How about data + fits? EXAMINE THIS CLOSELY 
+
+Note the use of panel in xyplot(). Panel is a set of functions that allow particular “functions” to be carried out inside each panel. Here we ask R to plot the data split by season, plot the data for each season (panel.xyplot) and fit a linear regression to that data (panel.lmline). 
+An alternative method, using the raw data and model coefficients....THIS IS WORTH CONSIDERING VERY CLOSELY AS AN INTERPRETATION OF THE DATA AND MODEL 
+
+WHICH IS THE BEST FIT ?
+We finish by detaching the dataset from the database and clearing all of the data and objects from the workspace….unless you want to save it. However, we recommend a script instead. 
+ 
+
+## Soay Sheep Data Exploration 
+
+Import the file soay2.csv. Call it sheep. 
+```{r echo=FALSE}
+sheep <- read.csv("./Data/soay2.csv")
+```
+
+These data are described as follows.
+
+```{r}
+str(sheep)
+```
+
+Produce a histogram of WEIGHT, Testosterone, ODIN, STR and SURV1 in a graph with 6 panels.
+
+Part of the a plot produced by ggpairs is a density plot akin to a histogram.
+
+```{r}
+require(GGally)
+ggpairs(sheep[,names(sheep) %in% c("WEIGHT", "Testosterone", "ODIN", "STR" ,"SURV1")])
+```
+
+Is WEIGHT approximately normally distributed? 
+Produce a qq-normal plot for each of the variables (each data.column) above 
+– do they look straight? 
+
+*	Carryout a Kolmogorov-Smirnov Test and a Shapiro-Wilks testfor normality on each of these; the KS test is one of may tests for normality. pnorm stipulates a comparison between the data.column and the normal probability distribution; what does the p-value indicate? 
+ 
+
+Linear regression 
+Now let’s do an exploratory linear regression analysis. The question we are asking is “What factors influence body weight in Soay sheep?” 
+Our goal is to explore, using linear regression, whether sex age and parasite
+load influence body weight.
+Start with plots of the data again
+Is AGE a factor or a Covariate?
+
+
+ 
+
+Note how names(m1) produced a list of component pieces to the object, defined my lm. We can use these objects to reproduce some of the diagnostic plots 
+What did abline(h=0) produce on the plot? 
+
+As above, we use anova and summary to explore this model 
+ 
+
+Now, we are faced with some interesting decisions. As we are exploring this data, one might argue that we are not necessarily looking for the best predictive model (adding terms to the model will invariably increase the R2 and make it better at predicting). Instead, we use the philosophy of the minimum adequate model to seek out the variables that explain significant amounts of variance. 
+
+
+To do this, we begin by looking at the highest order terms in the model – in this case the 3-way interaction. Because 1) our anova table is sequential and we can only trust the p-values on the highest order terms, and 2) because everything above this is marginal, we ask the very simple question – is the 3way significant? 
+If the answer is no, than removing it from the model makes no significant change in our explanation of variance. Remember this principle. 
+We can use a trick in R to update our model and make sure that our interpretation is correct. 
+ 
+
+m2 is now a model formed, using the command update(), without the 3 way interaction. We look at the new anova table to confirm we lost it. We can then use anova(m1,m2) to compare the model, using an F-test, to determine whether one explains more variation than the other. It tests the change in the sums of squares against the F-distribution. Compare this p-value to the one in the anova table for model 1 above. Is it the same? 
+Now, we are stuck with a rather difficult prospect. Model 2 has three 2-way interactions in it. Each of these is in the highest order category now (2-way). Moreover, as the table is sequential, the only p-value that we can trust is the last one, for SEX:STR. How do we cope? 
+
+We could, if we had the time and inclination, rewrite our model three times, each time, placing one of the 2-way terms at the end of our model description. Or, as we saw above, we could create 3 models, each missing one of the 2-way variables, and use anova() to compare the two. A significant p-value on any of the comparisons would indicate that indeed, the term is significant and important. These are called single-term-deletion tests. 
+Not surprisingly there is an easier way: dropterm() from the MASS library. This function implements the single-term-deletions.  You therefore need to load MASS.
+ 
+Q:Why does dropterm() only report on the higher order interactions? 
+Q: Which terms can we consider dropping? 
+
+Let’s begin with the most insignificant term, and work our way down the chain of significance and order of interactions 
+ 
+Notice now that we have the minimum explanatory model. Our deletions of the 2-way terms left us with only one significant higher order term: age*sex. This left parasite load behind, and as it is not involved in an interaction, the main effect is the highest order term for parasite load. We have detected significant effects of parasite load on Weight and of age and sex on weight. Using summary(m4) we can identify that increasing parasite load, controlling for sex and age, causes decreases in weight. 
+ 
+
+Finally we can use predicted values from the model to explore the interaction! 
+First, we must declare a parasite load at which to make the prediction. Then we build a data frame for prediction. Then we use this data frame. 
+ 
+Note how expand.grid makes a minimal dataset of values on which to predict. 
+Now we make a dataset for plotting. 
+ 
+Now, we use lots of primitive graphics to make a nice barplot showing everything. 
+ 
+Involved, but completely customisable! TRY THIS too. 
+ 
+Some people like the idea of Type III sums of squares (as you'd get in Minitab) – so that you can look at the terms' significance without doing the dropterm() or drop1().  See http://www.stats.ox.ac.uk/pub/MASS3/Exegeses.pdf for a discussion why Type IIIs are often not used.  If you insist, you can use the command:
+
+```{r}
+#anova(mm1,type="marginal")
+```
+
+
