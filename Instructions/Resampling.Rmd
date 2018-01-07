@@ -2,12 +2,16 @@
 title: "Resampling"
 author: "Etienne Low-Décarie"
 date: '2018-01-07'
-output: pdf_document
+output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
 ---
 
 > Original produced by Tom Cameron
 
-Randomization methods
+# Randomization methods
 
 > We will try some randomization methods - bootstrapping, jackknifing and permutation.  
 
@@ -36,106 +40,147 @@ This means create a new data.frame called grouse by column-binding Lek, Size and
 *	This indicates that r = 0.3907 and P = 0.1346
 *	The problem we have is that we only have 16 leks and so we are not sure about the shape of the underlying distribution (i.e. Poisson, negative binomial or something else). Also, there are one or two potential outliers that could produce a spurious relationship or obscure a genuine one. These are exactly the sorts of problems that are randomization methods were developed to cope with.
  
-Bootstrapping 
+# Bootstrapping 
 *	Bootstrapping will allow us to determine a more accurate estimate of r and its standard error, by taking account of any skew in the data
 *	To obtain bootstrapped estimates of the correlation between Lek Size and Number of birds. Use this code:
 
 ```{r}
-
-```
 corr<-function(d,i){
 cor(d[i,2],d[i,3]) # this takes pairs of data from columns 2 and 3 of 
 } 			# the data frame and randomly chosen row i
 
-library(boot)
+```
 
+```{r}
+library(boot)
 boot1<-boot(Grouse,corr,1000)
 boot.ci(boot1,conf=0.95,type=c("norm","basic","perc","bca"))
+```
+
+
+
 
 The first bit of code creates a function to take the data and correlate samples of it (as specified by randomly chosen indices – the “i”s coming from the boot function).  The final bit performs the bootstrap and from it, calculates various types of confidence interval.
 *	Now type:
 			plot(boot1)
 
-Q: 		How do you interpret this output?
-Q: 		What is the best estimate of the correlation coefficient and its s.e.?
-Q: 		What is the bias-corrected 95% confidence interval?
+> Q: 		How do you interpret this output?
+> Q: 		What is the best estimate of the correlation coefficient and its s.e.?
+> Q: 		What is the bias-corrected 95% confidence interval?
 Note.  The following code bootstraps the coefficients of a simple regression model (y~x), with the output passing the coefficients (for intercept and slope) which are stored in the boot.obj in t (the table of results) i.e. boot.obj$t[,1]  is the intercept and t[,2] is the slope].  
 
+```{r}
 regs<-function(d,i){
-mod<-lm(d[i,3]~d[i,2])
-return(coefficients(mod))
+  mod<-lm(d[i,3]~d[i,2])
+  return(coefficients(mod))
 }
+```
 
+```{r}
 b<-boot(data=Grouse,statistic=regs, R=1000)
+```
 
-plot(b,index=1) #plots the intercept estimates
-plot(b,index=2) #plots the slope estimates
-boot.ci(b, type="all",index = 1, main="intercepts")) #gives 
-								#the intercept CIs
-boot.ci(b, type="all",index = 2, main="slopes") #gives the 
-								#slope CIs
+plots the intercept estimates
+```{r}
+plot(b,index=1)
+```
+
+plots the slope estimates
+```{r}
+plot(b,index=2)
+```
+
+gives the intercept CIs
+```{r}
+boot.ci(b, type="all",index = 1, main="intercepts")
+```
+
+gives the slope CIs
+```{r}
+boot.ci(b, type="all",index = 2, main="slopes")
+```
 
 
-Jackknifing 
+# Jackknifing 
 *	Now let’s check for outliers, using the jackknife-after-bootstrap:
 			jack.after.boot(boot1)
 
 
-Q: 		How do you interpret this plot?  ?jack.after.boot may help
+> Q: 		How do you interpret this plot?  ?jack.after.boot may help
 
 *	Try plotting Number vs Size, with Lek number instead of symbols 
 
-plot(Number~Size,type=”n”)
-text(Size,Number,lab=labels(Lek))
+```{r}
+require(ggplot2)
+p <- qplot(data=Grouse,
+           y=Number,
+           x=Size,
+           label=Lek,
+           geom="text")
+print(p)
+```
 
 
-Q: 		Which lek is the outlier? (at this point, you would check for typos, etc)
+> Q: 		Which lek is the outlier? (at this point, you would check for typos, etc)
 
 Now let us jackknife the correlation from first principles:
-This function takes our data (in a frame data<-data.frame(cbind(Number, Size)) and goes thru it line by line dropping each pair of data and recalculating the correlation, storing it in the array “jk_res”.
+This function takes our data (in a frame `num_size<-data.frame(cbind(Number, Size))` and goes thru it line by line dropping each pair of data and recalculating the correlation, storing it in the array “jk_res”.
 
-jkc<-function(d)
- {  #function to jack a correlation
-n<-nrow(d)
-jk_res<-rep(0,n)
-tmp<-c(1:n)
-for(i in 1:n) {
-jk_res[i]<-cor(d[eval(tmp!=i),1],d[eval(tmp!=i),2])
-}
-return(jk_res)
-}
+```{r}
+num_size<-data.frame(cbind(Number, Size))
+```
+function to jack a correlation:
+```{r}
+jkc<-function(d){
+  n<-nrow(d)
+  jk_res<-rep(0,n)
+  tmp<-c(1:n)
+  for(i in 1:n){
+    jk_res[i]<-cor(d[eval(tmp!=i),1],d[eval(tmp!=i),2])
+    }
+  return(jk_res)
+  }
 
-j<-jkc(data)
+j<-jkc(num_size)
+```
 
 Now plot the results to show observed correlations vs the distribution of jackknifed correlations:
 
-hist(j, main="jackknife distribution")
-abline(v= cor(data[,1],data[,2]), col=3,lty=2)
+```{r}
+p <- qplot(x=j,
+           main="jackknife distribution")+
+  geom_vline(xintercept = cor(num_size[,1],num_size[,2]))
+print(p)
+```
 
 Look at j and see which pairs of data, when left out, make the biggest difference to the correlation.  Are these outliers?
 
 The descriptive statistics of the jackknife distribution can be calculated using code like this:
 
-#calculate parametric 95% CI based on mean and SD of distribution
+calculate parametric 95% CI based on mean and SD of distribution
+```{r}
 error <- qt(0.975,df=(length(j)-1))*(sqrt(var(j))/sqrt(length(j)))
 left <- mean(j)-error
 right <- mean(j)+error
 print(c(left,mean(j),right))
+```
 
 
 
 
 
-Permutation 
+# Permutation 
 *	Now let’s determine whether the correlation coefficient is significantly different from zero for our Number vs Size correlation.  
 *	To do this we’ll randomly resample from our Number data column (1000 times) and ask the question: if our Numbers are randomly sampled from the population, what would be the expected value of the correlation coefficient?  We can then compare our observed correlation with the Null distribution.
-resample <- function(x, size) #function to permute the data
- { if(length(x) <= 1) { 
-if(!missing(size) && size == 0) x[FALSE] 
-else x
-  } 
-else sample(x, size, replace=FALSE)
+
+function to permute the data:
+```{r}
+resample <- function(x, size){
+  if(length(x) <= 1) {
+    if(!missing(size) && size == 0) x[FALSE] else x
+  }else sample(x, size, replace=FALSE)
 }
+
 x<-Number
 y<-Size
 
@@ -143,19 +188,25 @@ ssize<-1000  #this sets our sample size
 rep_res<-rep(0,ssize) #this sets up an array to put the results in
 n<-length(x)
 
-for (i in 1:ssize){  # this loops 1000 times collecting new samples
-samp<-resample(x, n)
-rep_res[i]<-cor(y,samp)		# and calcs the corr
+for(i in 1:ssize){  # this loops 1000 times collecting new samples
+  samp<-resample(x, n)
+  rep_res[i]<-cor(y,samp)		# and calcs the corr
 }
+```
 
-# this draws the graph
-hist(rep_res, xlim=c(min(c(cor(x,y),rep_res)),
-     max(c(cor(x,y),rep_res) )  ) , main="permutation 
-     distribution" )
-abline(v=cor(x, y),col=3, lty=2)
+this draws the graph
+```{r}
+p <- qplot(x=rep_res,
+main="permutation 
+     distribution" )+
+  geom_vline(xintercept = cor(x, y))
+print(p)
+```
 
-NB: 	Check out the graph (this shows the null distribution of correlation coefficients and vertical line the observed)
-Q: 	What is the significance of the correlation coefficient’s departure from zero?
-Q: 	How does this differ from bootstrap (in methods and results)?
+> NB: 	Check out the graph (this shows the null distribution of correlation coefficients and vertical line the observed)
+
+> Q: 	What is the significance of the correlation coefficient’s departure from zero?
+
+> Q: 	How does this differ from bootstrap (in methods and results)?
 
 Now you have been through the analyses with the practical data, try it again by running the scripts with new data (make up some, modify the data above, use your own data etc etc).  Remember, to get the macros to run, you’ll need to set up the dataframe called (data) with the x and y variables stacked on top of each other, and with a column containing the grouping variable.
