@@ -11,8 +11,8 @@ output:
 ---
 
 Based on sheet produced by Tom Cameron
+This is a very quick basic introduction to some simple linear models in R. Firstly there is an example where you do a one-way analysis "by hand" in R. Then a simple one way ANOVA and a regression for you to use as a means of getting to know R. The next few practicals will develop the skills you pick up here.
 
-# ANOVA
 
 ## Do an ANOVA by hand...
 Note this next can be cut and pasted in as a script, or alternatively, you can enter this all bit by bit because that way you’re more likely to understand ...
@@ -25,13 +25,13 @@ require(ggplot2)
 require(tidyr)
 theme_set(theme_bw())
 ```
-Read in the data
+Read in the data - 
 ```{r}
-anova1<-read.csv("./Data/anova1.csv")
+#note working with the RMD markdown file you have to use a double period in the file name
+anova1<-read.csv("../Data/anova1.csv")
 ```
 make sure the file type & path is correct
-make sure you have the data. Try to plot it
-
+make sure you have the data. Try to plot it, what do you think the data represents?
 
 lets you see the format of the data, should location be a factor?
 ```{r}
@@ -90,7 +90,9 @@ totalSS<-sum(anova1$total)
 
 note you can do all these manipulations in single lines of code:
 ```{r eval=FALSE}
-within<-sum((no_eggs-gpmeans)^2) between<-sum((gpmeans-grandmean)^2) total<-sum((no_eggs-grandmean)^2)
+withinSS<-sum((anova1$no_eggs-anova1$gpmeans)^2) 
+betweenSS<-sum((anova1$gpmeans-anova1$grandmean)^2) 
+totalSS<-sum((anova1$no_eggs-anova1$grandmean)^2)
 ```
 
 check you have estimates of the SS:
@@ -104,13 +106,9 @@ betweenSS
 totalSS
 ```
 
-now calculate the mean square as SS/df
-for total, you have 18 data points and have calculated the grandmean so that makes a df of 18-1=17 (or #putting it another way, knowing the grandmean and 17 data points you can calculate the 18th
-for bewteen group means, knowing one group mean and the grand mean you can calculate the 2nd
-
- This is a very quick basic introduction to some simple linear models in R. Firstly there is an example where you do a one-way analysis "by hand" in R. Then a simple one way ANOVA and a regression for you to use as a means of getting to know R. The next few practicals will develop the skills you pick up here.
-
-groupmean, so df=1 (=n groups-1) the error (within groups) df is estimated thus: for each group, if you #know the group mean and n-1 data points, you can calculate the final one. In this case we have 9 data in #each group, so 8df in each of two groups, so groups df=16. Check total df=within groups df+ between #groups df : 17=16+1
+Now calculate the mean square as SS/df
+For total, you have 18 data points and have calculated the grandmean so that makes a df of 18-1=17 (or #putting it another way, knowing the grandmean and 17 data points you can calculate the 18th.
+For bewteen group means, knowing one group mean and the grand mean you can calculate the 2nd groupmean, so df=1 (=n groups-1) the error (within groups) df is estimated thus: for each group, if you #know the group mean and n-1 data points, you can calculate the final one. In this case we have 9 data in #each group, so 8df in each of two groups, so groups df=16. Check total df=within groups df+ between #groups df : 17=16+1
 
 ```{r}
 withinMS<-withinSS/16
@@ -144,27 +142,30 @@ now calculate the F statistic as MS between/MS within
 Fstat<-betweenMS/withinMS
 ```
 
-now calculate P
+now calculate P using the "pf" function
 ```{r}
 pf(Fstat,1,16,lower.tail=F)
 ```
 
 ## Use built in R functions for ANOVA (rather than "by hand"
 you have now done an ANOVA "by hand" in R. Check it by doing it "properly":
+create a linear model object using the "lm" command
+assign linear model to an object name, e.g. m1 or model 1
+in assuming we can work with this data using a linear model – what assumptions?
 ```{r}
 m1<-lm(no_eggs~location, data=anova1)
 ```
 
-create a linear model object using the "lm" command
-assign linear model to an object name, e.g. m1 or model 1
-in assuming we can work with this data using a linear model – what assumptions?
+go back and look at your data to think about these assumptions
+e.g. plot a histogram of the data
 
-```{r}
-summary(m1) #look at the summary function applied to a linear model 
-```
 ```{r}
 anova(m1) # compare the summary function output to the anova function
 ```
+```{r}
+summary(m1) #look at the summary function applied to a linear model 
+```
+Use your earlier plot functions to help interpret these outputs. What do they mean?
 
 ## Exercise 1. One way ANOVA
 An experiment was conducted to compare the effect of three amino acids: carnosine, histidine and imidazole on ascorbate-iron induced lipid peroxidation in rat liver microsomes. The results are below (in arbitrary units of rate). Do the different amino acids produce different amounts of peroxidation?
@@ -182,6 +183,7 @@ An experiment was conducted to compare the effect of three amino acids: carnosin
 .* How do the model1$coefficients relate to what appears in the `summary(model1)` table?
 
 8. The coefficients of a fitted model are used (with associated SEs) to compare groups. The comparisons of coefficients is known as a contrast. Type `options(contrasts=c("contr.sum","contr.poly"))`, run the model again, and look at the coefficients again (using summary(model1)). Can you work out (and use help!) what the coeffs mean? Putting the contrasts back to the default (`contrasts=c("contr.treatment","contr.poly")`) and try and work out (by looking at the coefficients) how the `contrast.sum` and `contrast.treatment` differ. How can you use the coefficients to compare groups?
+There is a good online tutorial on working with contrasts here https://rstudio-pubs-static.s3.amazonaws.com/65059_586f394d8eb84f84b1baaf56ffb6b47f.html
 
 ```{r}
 perox <- c(13.9,
@@ -209,9 +211,13 @@ perox_amino <- data.frame(perox,amino)
 
 The contractile vacuole of protozoa can often be observed under the microscope. In an experiment, protozoa were placed in different concentrations of water and the rate of contractile vacuole contractions observed. What, if any, is the relationship between contractile vacuole contractions and water salinity?
 
-1. Always begin by plotting the data to see what a relationship looks like. Use lm to fit a model to it, with the model looking at contraction rate as a function of concentration. What is the equation describing the relationship? Does the vacuole work differently at different concentrations? If so, why?
+Here are the data as text - you will have to introduce them to R
+•	concentration         40.0	45.0	50.0	55.0	60.0	65.0	70.0	75.0
+•	contraction rate      12.5	11.2	10.4	9.5	 8.9	  7.7	  7.2	  6.8
+
+1. Always begin by plotting the data to see what a relationship looks like. Then use lm to fit a model to it, with the model looking at contraction rate as a function of concentration. What is the equation describing the relationship? Does the vacuole work differently at different concentrations? If so, why?
 2. Plot the graph and add the fitted line using the command abline(modelname) (where "modelname" is the name you gave your model)
 3. set up a new data frame with `new <- data.frame(conc = seq(10, 30, 5))`  
-4. use this new data frame to predict values of contraction rate that are at different concentrations than
-used in the experiment by `predict(modelname,new)`. Hint, you will get funny error messages if your new data has a different variable name to that in your model.
+   what is it that seq() does?
+4. use this new data frame to predict values of contraction rate that are at different concentrations than used in the experiment by `predict(modelname,new)`. HINT, you will get funny error messages if your new data has a different variable name to that in your model.
                       

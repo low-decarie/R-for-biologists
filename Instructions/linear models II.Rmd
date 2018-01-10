@@ -16,7 +16,7 @@ This dataset is taken from the Quinn and Keough book. It is a study looking at d
 > Step 1: Import the limpet data into R and attach the data sheet.  Identify the names of the columns in R and do a panel plot of eggs vs. density, split by season 
 
 ```{r echo=FALSE}
-limp <- read.csv("./Data/limpet.csv")
+limp <- read.csv("../Data/limpet.csv")
 ```
 
 ```{r}
@@ -37,7 +37,7 @@ str(limp)
 ```
 
 Based on the graph, what do I expect my 2-way analysis to show – the null hypothesis, the alternative of an interaction, or the alternative of no interaction? 
-To do this analysis, we use the workhorse, lm(), follow this immediately by a check of assumptions, then an examination of the anova table and the coefficients table. lm performs general linear models – these models assume normally distributed errors, but are robust to deviations in sample sizes (unbalanced designs). 
+To do this analysis, we use the workhorse, lm(), follow this immediately by a check of assumptions, then an examination of the anova table and the coefficients table. lm performs general linear models – these models assume (near) normally distributed errors, but are robust to deviations in sample sizes (unbalanced designs) and robust to normality with very large sample sizes. 
 
 ````{r}
 m1<-lm(EGGS~DENSITY*SEASON,
@@ -65,19 +65,20 @@ The “Call” in `summary()` specifies your model – is this what you wanted? 
 The coefficients are as in any statistical package – the estimates for each term are the coefficients that help describe change in the dependent variable as a function of the independent variable(s). 
  
 
-The Residual Standard Error, Multiple R2 and Adjusted R2 tell you the standard things about variance explanation 
-Finally, the F-test, degrees of freedom and overall significance of the model is presented 
+The Residual Standard Error, Multiple R2 and Adjusted R2 tell you the standard things about variance explanation.
+Finally, the F-test, degrees of freedom and overall significance of the model is presented. 
 Do the diagnostic plots show anything bad? 
 The anova table shows which if any terms are significant? 
-Is this table a sequential sums of squares? 
+Is this table a sequential sums of squares? HINT - google is your friend.
 Which terms are marginal to the interaction? 
-What does this mean? 
+What does this mean?  HINT - google is your friend.
 Which Hypothesis does this analysis support? 
 Remove the interaction term (e.g. reanlyse as m2<-lm(EGGS~DENSITY+SEASON)).  Are the p-values the same as the ANOVA table with the interaction term?
 
-Let’s examine the fitted values and make a plot of our predictions. Note how we can use tapply and predict to get the fitted values (look at the help for them!). Note the “response” notation, as this predicts the fitted values of the model in terms of the response variable.  This will be important later with generalized linear models, as you can predict differently (e.g. in terms of the transformed response variable).
+Let’s examine the fitted values and make a plot of our predictions. Note how we can use `augment` and `dplyr:::summarise` to get the fitted values (look at the help for them!). By using augment instead of predict we get the fitted.values, which are the same as predictions (see above), already tabulated and sorted with their original treatments. 
  
 ```{r}
+#install.packages("broom")
 require(broom)
 m1_augmented <- augment(m1)
 
@@ -114,35 +115,39 @@ spread(density_season_means,
 
 What does `spread` do?
 
-We can use predict to make a final plot of the predicted values from the generalised linear models.  Sometimes useful for presenting the data
+We can now make a final plot of the predicted/fitted values from the  linear model and compare this to the original raw data.  Sometimes useful for presenting your results in papers and presentations and checking model fit by eye.
 
 
 ```{r}
 p <- qplot(data=m1_augmented,
            x=DENSITY,
            y=.fitted,
+           ylab="No. of Eggs",
            colour=SEASON,
            shape=SEASON,
-           geom=c("point", "line"))
+           geom=c("line"))+
+  geom_point(aes(y=EGGS))
+
 print(p)
 ```
+How does this plot help you interpret your data and its associated "best" model?
+Ask yourself - Is the density dependence in fecundity the same in each season?
 
+Now do the same to compare between two models - one with and one without an interaction between DENSITY and SEASON
+HINT - build two models (m1 and m2)
+     - use ggplot to show the raw data and model fits (as above)
+     - use cowplot to place the plot for each model into a set of panels/grids
+     
 
-How about data + fits? EXAMINE THIS CLOSELY 
-
-
-WHICH IS THE BEST FIT ?
-
- 
 
 ## Soay Sheep Data Exploration 
 
 Import the file soay2.csv. Call it sheep. 
 ```{r echo=FALSE}
-sheep <- read.csv("./Data/soay2.csv")
+sheep <- read.csv("../Data/soay2.csv")
 ```
 
-These data are described as follows.
+Use `str` to explore your data. The details of the data will be put up on the board.
 
 ```{r}
 str(sheep)
@@ -153,12 +158,16 @@ Produce a histogram of WEIGHT, Testosterone, ODIN, STR and SURV1 in a graph with
 Part of the a plot produced by ggpairs is a density plot akin to a histogram.
 
 ```{r}
+
+if(!require(GGally)){install.packages("GGally")}
 require(GGally)
 ggpairs(sheep[,names(sheep) %in% c("WEIGHT", "Testosterone", "ODIN", "STR" ,"SURV1")])
 ```
 
 Is WEIGHT approximately normally distributed? 
-
+you can use base plot to explore the raw data
+HINT - par(mfrow=c(2,3)) #opens a plot window with 2 rows and 3 columns
+then plot each data e.g. hist(sheep$WEIGHT)...and so on until you have 6 plots
  
 
 Linear regression 
@@ -198,7 +207,7 @@ m1 <- lm(WEIGHT~factor(AGE)*SEX*STR,
 
 
 
-Note how `names(m1)` produced a list of component pieces to the object, defined my lm. We can use these objects to reproduce some of the diagnostic plots.
+Note how `names(m1)` produced a list of component pieces to the object, defined by my lm. We can use these objects to reproduce some of the diagnostic plots. There are a number of ways to do this below but in this instance baseR plot(modelname) is probably the easiest
 ```{r}
 names(m1)
 ```
@@ -208,7 +217,10 @@ par(mfrow=c(2,2))
 plot(m1)
 ```
 ```{r}
+if(!require(ggfortify)){install.packages("ggfortify")}
 require(ggfortify)
+if(!require(bindrcpp)){install.packages("bindrcpp")}
+require(bindrcpp)
 autoplot(m1)
 ```
 
@@ -229,11 +241,12 @@ anova(m1)
 summary(m1)
 ```
 
-Now, we are faced with some interesting decisions. As we are exploring this data, one might argue that we are not necessarily looking for the best predictive model (adding terms to the model will invariably increase the R2 and make it better at predicting). Instead, we use the philosophy of the minimum adequate model to seek out the variables that explain significant amounts of variance. 
+Now, we are faced with some interesting decisions. As we are exploring this data, one might argue that we are not necessarily looking for the best predictive model (adding terms to the model will invariably increase the R2 (explanatory power) and make it "better" at predicting). Instead, we use the philosophy of the "minimum adequate model" to seek out the indivisual variables that explain "significant" amounts of variance. 
 
 
-To do this, we begin by looking at the highest order terms in the model – in this case the 3-way interaction. Because 1) our anova table is sequential and we can only trust the p-values on the highest order terms, and 2) because everything above this is marginal, we ask the very simple question – is the 3way significant? 
+To do this, we begin by looking at the highest order terms in the model – in this case the 3-way interaction. Because 1) our anova table is sequential and we can only trust the p-values on the highest order terms, and 2) because everything above this in the table is marginal, we ask the very simple question – is the 3way significant? 
 If the answer is no, than removing it from the model makes no significant change in our explanation of variance. Remember this principle. 
+
 We can use a trick in R to update our model and make sure that our interpretation is correct. 
 
 ```{r}
@@ -256,9 +269,10 @@ require(MASS)
 dropterm(m2, test="F")
 ```
 Q:Why does dropterm() only report on the higher order interactions? 
-Q: Which terms can we consider dropping? 
+Q:Note the use of AIC - do you know what it is and how to read it?
+Q:Which terms can we consider dropping? 
 
-Let’s begin with the insignificant term, and work our way down the chain of significance and order of interactions 
+Let’s begin with the most insignificant term which also has the lowest AIC, and work our way down the chain of significance and order of interactions 
 
 ```{r}
 m3 <- update(m2, ~.-SEX:STR)
@@ -267,7 +281,7 @@ dropterm(m3,test="F")
 
 
 ```{r}
-m4 <- update(m3, ~.-factor(AGE):SEX)
+m4 <- update(m3, ~.-factor(AGE):STR)
 dropterm(m4,test="F")
 ```
 Notice now that we have the minimum explanatory model. Our deletions of the 2-way terms left us with only one significant higher order term: age*sex. This left parasite load behind, and as it is not involved in an interaction, the main effect is the highest order term for parasite load. We have detected significant effects of parasite load on Weight and of age and sex on weight. Using summary(m4) we can identify that increasing parasite load, controlling for sex and age, causes decreases in weight. 
@@ -276,7 +290,7 @@ Notice now that we have the minimum explanatory model. Our deletions of the 2-wa
 summary(m4)
 ```
 
-Finally we can use predicted values from the model to explore the interaction! 
+Finally we can use predicted values from the model to explore the sex*age interaction! 
 First, we must declare a parasite load at which to make the prediction. Then we build a data frame for prediction. Then we use this data frame. 
 
 ```{r}
@@ -307,6 +321,9 @@ p <- qplot(data=augment_m4,
            geom="boxplot")
 print(p)
 ```
+Why dont you try to generate a two panel plot (cowplot), each panel using a different parasite load.
+
+
 Some people like the idea of Type III sums of squares (as you'd get in Minitab) – so that you can look at the terms' significance without doing the dropterm() or drop1().  See http://www.stats.ox.ac.uk/pub/MASS3/Exegeses.pdf for a discussion why Type IIIs are often not used.  If you insist, you can use the command:
 
 ```{r}
